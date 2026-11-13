@@ -184,6 +184,38 @@ describe('双语快照展示保护', () => {
         }
     });
 
+    it('Reddit post paragraphs translate and restore independently across repeated and dynamic updates', () => {
+        const {document} = page('');
+        document.body.innerHTML = `<main><shreddit-post><div slot="text-body" id="body">
+            <ul><li><p id="first">The first paragraph has <a id="post-link" href="/guide">a useful link</a>.</p>
+                <p id="second">The second paragraph retains its own context.</p></li></ul>
+            <blockquote><p id="quote">A quoted paragraph remains independent.</p></blockquote>
+        </div><button id="post-action">Reply</button></shreddit-post></main>`;
+        const core = createTranslationCore({url: new URL('https://www.reddit.com/r/macapps/')});
+        const link = document.getElementById('post-link')!, action = document.getElementById('post-action')!;
+        for (let cycle = 0; cycle < 2; cycle++) {
+            if (cycle) {
+                const extra = document.createElement('p');
+                extra.id = 'dynamic'; extra.textContent = 'A dynamically added paragraph remains independent.';
+                document.getElementById('body')!.appendChild(extra);
+            }
+            const original = document.body.innerHTML;
+            const expected = ['first', 'second', 'quote', ...(cycle ? ['dynamic'] : [])];
+            const candidates = core.discover(document);
+            expect(candidates.map(candidate => candidate.element.id).sort()).toEqual([...expected].sort());
+            for (const candidate of candidates) commitBilingual(candidate.element as HTMLElement, core);
+            for (const id of expected) {
+                const owner = document.getElementById(id)!;
+                expect(owner.querySelectorAll('.fluent-read-bilingual-content')).toHaveLength(1);
+                expect(owner.lastElementChild?.classList.contains('fluent-read-bilingual-content')).toBe(true);
+            }
+            expect(document.getElementById('post-link')).toBe(link);
+            expect(document.getElementById('post-action')).toBe(action);
+            for (const candidate of candidates) expect(restoreTranslation(candidate.element as HTMLElement)).toBe(true);
+            expect(document.body.innerHTML).toBe(original);
+        }
+    });
+
     it.each(['slot="comment"', 'id="t1_nested-comment-rtjson-content"'])(
         'Reddit %s 表格内分段翻译和恢复保持原始结构、链接及代码', (marker) => {
             const {document} = page('');

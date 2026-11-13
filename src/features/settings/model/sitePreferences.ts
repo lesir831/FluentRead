@@ -1,10 +1,10 @@
 /**
  * @file src/features/settings/model/sitePreferences.ts
  * 文件职责：将自动翻译、禁用扩展、隐藏悬浮球和仅译文网站名单组合成可编辑偏好与可解释的生效状态。
- * 主要内容：按主域去重展示、生成仅涉及目标网站的更新、保留重叠偏好，并复用运行时自动翻译判定解释优先级。
+ * 主要内容：按各名单的主域或主机范围去重展示、生成仅涉及目标网站的更新、保留重叠偏好，并复用运行时自动翻译判定解释优先级。
  * 模块边界：不持久化、不读取标签页、不请求网址；数据来自现有配置，禁用扩展优先于自动翻译且不清除其他偏好。
  */
-import {getSiteBaseDomain, normalizeSiteDomains, resolveSiteTranslationDisplay, shouldAutoTranslatePage} from '@/src/core/site-rules/domain';
+import {getSiteBaseDomain, getSiteHostname, isFloatingBallDisabledOnSite, normalizeFloatingBallDisabledDomains, normalizeSiteDomains, resolveSiteTranslationDisplay, shouldAutoTranslatePage} from '@/src/core/site-rules/domain';
 
 export interface SitePreferences {
     on: boolean;
@@ -29,7 +29,7 @@ export interface SitePreferenceRow {
 export function listSitePreferences(config: SitePreferenceLists): SitePreferenceRow[] {
     const always = new Set(normalizeSiteDomains(config.alwaysTranslateDomains));
     const disabled = new Set(normalizeSiteDomains(config.disabledExtensionDomains));
-    const hidden = new Set(normalizeSiteDomains(config.floatingBallDisabledDomains));
+    const hidden = new Set(normalizeFloatingBallDisabledDomains(config.floatingBallDisabledDomains));
     const single = new Set(normalizeSiteDomains(config.translationOnlyDomains));
     return [...new Set([...always, ...disabled, ...hidden, ...single])]
         .sort((a, b) => a.localeCompare(b)).map(domain => ({domain, alwaysTranslate: always.has(domain),
@@ -40,7 +40,10 @@ export function listSitePreferences(config: SitePreferenceLists): SitePreference
 export function updateSitePreference(config: SitePreferenceLists, input: string, row: Omit<SitePreferenceRow, 'domain'> | null): SitePreferenceLists | null {
     const domain = getSiteBaseDomain(input);
     if (!domain) return null;
+    const hostname = getSiteHostname(input)!;
     const update = (values: string[] | undefined, included: boolean) => {
+        // 子站行只拥有悬浮球规则；删除或取消它不能清除独立的主域偏好。
+        if (hostname !== domain && !included) return normalizeSiteDomains(values);
         const result = normalizeSiteDomains(values).filter(value => value !== domain);
         if (included) result.push(domain);
         return result;
@@ -48,7 +51,8 @@ export function updateSitePreference(config: SitePreferenceLists, input: string,
     return {
         alwaysTranslateDomains: update(config.alwaysTranslateDomains, row?.alwaysTranslate === true),
         disabledExtensionDomains: update(config.disabledExtensionDomains, row?.extensionDisabled === true),
-        floatingBallDisabledDomains: update(config.floatingBallDisabledDomains, row?.floatingBallHidden === true),
+        floatingBallDisabledDomains: [...normalizeFloatingBallDisabledDomains(config.floatingBallDisabledDomains).filter(value => value !== hostname),
+            ...(row?.floatingBallHidden === true ? [hostname] : [])],
         translationOnlyDomains: update(config.translationOnlyDomains, row?.translationOnly === true),
     };
 }
@@ -71,6 +75,6 @@ export function previewSitePreferences(input: string, config: SitePreferences): 
         translation: extension !== 'enabled' ? extension : shouldAutoTranslatePage(url, config)
             ? config.autoTranslate ? 'global' : 'site' : 'manual',
         floatingBall: extension !== 'enabled' ? extension : config.disableFloatingBall ? 'hidden-global'
-            : domain && normalizeSiteDomains(config.floatingBallDisabledDomains).includes(domain) ? 'hidden-site' : 'visible',
+            : isFloatingBallDisabledOnSite(url, config.floatingBallDisabledDomains) ? 'hidden-site' : 'visible',
     };
 }

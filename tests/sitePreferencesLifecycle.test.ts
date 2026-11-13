@@ -59,6 +59,23 @@ beforeEach(() => {vi.clearAllMocks();host = document.createElement('div');docume
 afterEach(() => {app?.unmount();app = undefined;host.remove();});
 
 describe('网站偏好真实 SFC 编辑与保存', () => {
+    it('Flow 子站添加、删除、撤销与偏好切换预览保留完整主机名', async () => {
+        const props = await mount({alwaysTranslateDomains: ['google.com']});
+        await input('input[inputmode="url"]', 'https://flow.google.com/a');
+        expect(host.querySelector('[data-domain-preview]')?.textContent).toContain('google.com');
+        await input('[data-select-port]', 'hidden', 'change');
+        expect(host.querySelector('[data-domain-preview]')?.textContent).toContain('flow.google.com');
+        fire(get('form'), 'submit'); await settle();
+        expect(props.settings.floatingBallDisabledDomains).toEqual(['flow.google.com']);
+        expect(props.settings.alwaysTranslateDomains).toEqual(['google.com']);
+        await click('[data-site-preference="flow.google.com"] button');
+        expect(props.settings.floatingBallDisabledDomains).toEqual([]);
+        expect(props.settings.alwaysTranslateDomains).toEqual(['google.com']);
+        await click('.rule-actions button');
+        expect(props.settings.floatingBallDisabledDomains).toEqual(['flow.google.com']);
+        expect(props.settings.alwaysTranslateDomains).toEqual(['google.com']);
+    });
+
     it('真实预览表单解释站点显示优先级、过期输入和非法网址，并允许检查命中的正文规则', async () => {
         const inspect = vi.fn();
         const adaptation: SiteAdaptationSettings = {enabled: true, disabledRuleIds: [], custom: {version: 1, rules: [
@@ -98,7 +115,7 @@ describe('网站偏好真实 SFC 编辑与保存', () => {
         await submit('https://docs.example.com/article?a=1');
         const field = preference === 'always' ? 'alwaysTranslateDomains' : preference === 'disabled' ? 'disabledExtensionDomains' : preference === 'single' ? 'translationOnlyDomains' : 'floatingBallDisabledDomains';
         expect(props.savePreferences).toHaveBeenCalledOnce();
-        expect(props.settings[field]).toEqual(['example.com']);
+        expect(props.settings[field]).toEqual([preference === 'hidden' ? 'docs.example.com' : 'example.com']);
         expect(props.savePreferences.mock.calls[0][0]).not.toHaveProperty('on');
         expect(get<HTMLInputElement>('input[inputmode="url"]').value).toBe('');
         expect(host.textContent).toContain('网站偏好已保存');

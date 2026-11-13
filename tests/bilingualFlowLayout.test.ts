@@ -154,6 +154,13 @@ describe('bilingual intrinsic flow layout', () => {
         expect(content.getAttribute('style')).toBeNull();
     });
 
+    it('keeps the translation wrapper on a separate line despite host inline span rules', () => {
+        const base = translationStyles.match(/\.fluent-read-bilingual-content\s*\{([^}]+)\}/u)![1]!;
+        expect(base).toMatch(/display:\s*block\s*!important\s*;/u);
+        // Only the outer wrapper is block; marker text remains inline for per-line decoration.
+        expect(translationStyles).toMatch(/\.fluent-display-marker > \.fluent-read-translation-text\s*\{\s*display: inline !important;/u);
+    });
+
     it('allows wrapping without flattening meaningful pre-line or pre-wrap source whitespace', () => {
         const base = translationStyles.match(/\.fluent-read-bilingual-content\s*\{([^}]+)\}/u)![1]!;
         expect(base).toMatch(/text-wrap:\s*wrap\s*;/u);

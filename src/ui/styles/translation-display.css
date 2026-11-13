@@ -10,9 +10,9 @@
  * 设置页预览提供，加载、重试、图片与提示框等其他页面状态仍在 src/app/content/page.css。
  */
 
-/* 双语模式，block 强制换行。基础规则必须位于预设之前，否则会用透明背景覆盖卡片和标记的底色。 */
+/* 双语模式，block 强制换行且不能被宿主 span 样式改回行内。基础规则必须位于预设之前，否则会用透明背景覆盖卡片和标记的底色。 */
 .fluent-read-bilingual-content {
-    display: block;
+    display: block !important;
     word-break: break-word; /* 允许在单词内断行，避免超出容器边界 */
     text-wrap: wrap; /* 译文独立换行，同时保留宿主 pre-line/pre-wrap 的空白与显式断行语义 */
     margin: 8px 0 !important; /* 统一与原文的上下间距，覆盖宿主段落样式 */

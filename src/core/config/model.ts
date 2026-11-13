@@ -516,7 +516,7 @@ export class Config {
     floatingBallCollapsedOpacity: number; // 悬浮球收起时的不透明度百分比
     floatingBallDefaultMargin: number; // 悬浮球默认状态相对视口边缘的水平边距（px，可为负数）
     floatingBallPopoutMargin: number; // 悬停展开时悬浮球相对视口边缘的水平边距（px，可为负数）
-    floatingBallDisabledDomains: string[]; // 不显示悬浮球的可注册域名（eTLD+1）
+    floatingBallDisabledDomains: string[]; // 不显示悬浮球的完整主机名（包含其下级子域，不扩大到父域）
     customHotkey: string; // 自定义鼠标悬浮快捷键
     quickTranslationProfiles: QuickTranslationProfile[]; // 额外快捷翻译方案；悬浮与全文各最多 8 项
     mouseHoverTranslationDelay: number; // 鼠标悬浮翻译触发延迟（毫秒）

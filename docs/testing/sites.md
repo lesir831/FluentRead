@@ -203,6 +203,8 @@ node scripts/testing/run-translation-mutation-test.cjs \
 
 ### Reddit 多翻译器共存与搜索结果
 
+帖子正文的列表和引用不再被当成不可拆分的整块文字；其中每个段落独立翻译，避免多个英文段落合并后只产生一段译文。`translationCore.test.ts` 和 `translationSnapshotProtection.test.ts` 覆盖社区列表页、段落内链接、重复翻译恢复及动态新增段落。双语容器的块级显示优先于宿主普通 span 样式，译文在原文后另起一行，行内荧光标记仍保留逐行装饰；`bilingualFlowLayout.test.ts` 锁定该样式契约。这里的结构夹具不代表 Reddit 实站验证。
+
 普通 `shreddit-comment` 的 `slot="comment"` 和 `*-comment-rtjson-content` 正文同时发现段落、列表、引用、六级标题和表格单元格；全文与悬浮共享这些明确的正文边界。列表、引用和单元格及其内嵌的普通 `div` 允许内部独立正文拥有各自的译文，子块前后的直接文字也分别保留，避免多个段落被拼接、遗漏或重复翻译。评论作者、正文外的近似标记、代码、编辑器和操作按钮继续保留原文。`translationCore.test.ts` 与 `translationSnapshotProtection.test.ts` 核对完整候选、混合文本、段落边界、链接和源节点身份、重复翻译恢复，以及正文标记失效和动态新增。标题与表格是 [Reddit 官方格式指南](https://support.reddithelp.com/hc/en-us/articles/360043033952-Formatting-Guide) 支持的正文格式；原创结构夹具不等同于当前实站验收。
 
 页面 HTML 曾同时包含外部译文的 font 容器与 FluentRead 双语 wrapper。旧快照把前者作为受保护原文复制，净化后丢失其标记，形成第三份译文。`translationCore.test.ts` 覆盖该结构的候选边界、快照省略与普通术语/代码保留。
@@ -277,3 +279,12 @@ node scripts/testing/run-codeforces-translation-test.cjs \
 `siteAdaptationCore.test.ts` 验证 `forceTranslate` 的字段校验、模板展开、导出边界、范围、停用与同 ID 覆盖，以及三个禁译标记只在匹配元素自身被覆盖。嵌套禁译、代码、隐藏节点、编辑器和用户排除仍受保护。`translationState.test.ts` 用真实 MutationObserver 验证自定义属性与普通 class 失去匹配后恢复原文并取消旧状态。
 
 网站夹具 `itch-games` 的 `comments-no-translate` 变体模拟 issue 提供的嵌套 React 评论外壳，运行悬浮与全文的翻译、恢复、重复触发、新增评论、等价重建和保护区变化，并检查实际供应商请求及精确恢复。用 `scripts/run-site-adaptation-test.cjs --cases itch-games --skip-settings-ui` 限定范围；测试供应商应返回目标语言正文，旧的英文回显假译文会被目标语言检查拒绝。按浏览器共同契约额外采集内容脚本隔离世界与后台诊断。夹具和本地供应商结果不能代替实站或在线服务验收。
+
+
+## 悬浮球子站范围
+
+“不显示悬浮球的网站”、网站偏好的“隐藏悬浮球”及悬浮球菜单的“当前网站隐藏”均保存完整主机名，例如 `https://flow.google.com/a` 保存为 `flow.google.com`，不再扩大为 `google.com`。规则仅命中该主机及其下级子域，不影响父域、兄弟子站或同名后缀攻击域名。始终翻译、禁用扩展与仅译文名单仍按主域名生效。
+
+已经保存的 `google.com` 规则继续覆盖其子域；不能从旧的主域规则推断原始输入，需删除旧条目并重新添加 `flow.google.com`。
+
+相关回归：`tests/siteRules.test.ts`、`tests/model.test.ts`、`tests/sitePreferencesLifecycle.test.ts`，覆盖设置预览、添加、删除撤销、兄弟站隔离及配置导出导入。

@@ -1,14 +1,14 @@
 /**
  * @file src/features/floating-ball/content/runtime.ts
  * 文件职责：协调悬浮球组件在网页中的创建、恢复位置、显隐、全屏避让、高级外观同步、权威翻译状态同步和卸载，并向组件注入全文翻译、漫画连续翻译切换与打开扩展快捷面板的动作。
- * 主要内容：维护单例 Shadow UI 与迟到挂载 requestId；本次隐藏只作用于当前文档，网站和全局隐藏复用现有配置；拖动坐标作为同一补丁保存，卸载释放订阅但不恢复全文会话。
+ * 主要内容：维护单例 Shadow UI 与迟到挂载 requestId；本次隐藏只作用于当前文档，网站隐藏保留当前完整主机名，不扩大到父域或兄弟子站；网站和全局隐藏复用现有配置；拖动坐标作为同一补丁保存，卸载释放订阅但不恢复全文会话。
  * 模块边界：运行时只拥有挂载和桥接职责，不实现拖拽视觉、外观归一化或全文翻译算法；FloatingBall.vue 负责交互，core/config 负责字段归一化，full-page feature 提供翻译动作，配置持久化通过 services/config 完成。
  */
 import FloatingBall from '@/src/features/floating-ball/ui/FloatingBall.vue';
 import type {FloatingBallHideScope, FloatingBallPresentation} from '@/src/features/floating-ball/types';
 import {config, requestConfigPatch, subscribeConfig} from '@/src/services/config/store';
 import type {Config} from '@/src/core/config/model';
-import {getSiteBaseDomain, isFloatingBallDisabledOnSite} from '@/src/core/site-rules/domain';
+import {getSiteHostname, isFloatingBallDisabledOnSite} from '@/src/core/site-rules/domain';
 import {reactive} from 'vue';
 import {subscribeMangaTranslation, openMangaEntry, openMangaReading, subscribeMangaReading, type MangaTranslationStatus} from '@/src/features/image-translation/public';
 import browser from 'webextension-polyfill';
@@ -124,7 +124,7 @@ async function hideFloatingBall(scope: FloatingBallHideScope, event: MouseEvent)
     }
     if (import.meta.env.BROWSER === 'userscript') return;
 
-    const domain = scope === 'site' ? getSiteBaseDomain(currentPageHref()) : null;
+    const domain = scope === 'site' ? getSiteHostname(currentPageHref()) : null;
     if (scope === 'site' && !domain) return;
     const patch = domain ? {floatingBallDisabledDomains: [...config.floatingBallDisabledDomains, domain]}
         : {disableFloatingBall: true};
@@ -241,7 +241,7 @@ export function mountFloatingBall(ctx?: ContentScriptContext) {
       onMangaReading: (event: MouseEvent) => {if(event.isTrusted)openMangaReading(event);},
       onSettingsClick: (event: MouseEvent) => openPopup(event),
       ...(import.meta.env.BROWSER === 'userscript' ? {} : {
-        canHideOnSite: getSiteBaseDomain(currentPageHref()) !== null,
+        canHideOnSite: getSiteHostname(currentPageHref()) !== null,
         onHideMenuOpen: () => anchoredPopup?.close(),
       }),
       onHide: hideFloatingBall,

@@ -2645,6 +2645,29 @@ describe('translation candidate core', () => {
         expect(core.resolveAtPoint(document, 10, 20)).toBeNull();
     });
 
+    it.each(['slot="text-body"', 'data-testid="post-content"', 'data-click-id="text"'])(
+        'Reddit post %s keeps nested list and quote paragraphs independent', marker => {
+            const {document, core} = page(`<main><shreddit-post><div ${marker}>
+                <p id="opening">An opening paragraph with <a href="/guide">a useful link</a>.</p>
+                <ul><li id="list"><p id="list-one">The first independently readable list paragraph.</p>
+                    <p id="list-two">The second independently readable list paragraph.</p></li>
+                    <li id="plain-item">A plain list item is still translated.</li></ul>
+                <blockquote id="quote"><p id="quote-one">The first independently readable quoted paragraph.</p>
+                    <p id="quote-two">The second independently readable quoted paragraph.</p></blockquote>
+                <p id="closing">The final paragraph retains its own translation.</p>
+            </div><button id="reply">Reply</button></shreddit-post></main>`, 'https://www.reddit.com/r/macapps/');
+            const original = document.body.innerHTML;
+            const expected = ['opening', 'list-one', 'list-two', 'plain-item', 'quote-one', 'quote-two', 'closing'];
+            const candidates = core.discover(document);
+            expect(candidates.map(candidate => candidate.element.id).sort()).toEqual([...expected].sort());
+            for (const id of expected) {
+                const element = document.getElementById(id)!;
+                expect(core.resolve(element.firstChild)?.element, id).toBe(element);
+            }
+            expect(core.resolve(document.getElementById('reply')!.firstChild)).toBeNull();
+            expect(document.body.innerHTML).toBe(original);
+        });
+
     it('limits Reddit to explicit post/comment targets and preserves navigation actions', () => {
         const {document, core} = page(`
             <header id="reddit-header">

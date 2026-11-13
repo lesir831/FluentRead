@@ -1268,7 +1268,7 @@ describe('悬浮球进阶外观配置', () => {
         expect(normalizeConfig({floatingBallSettingsEntryVisible: 'no'}).floatingBallSettingsEntryVisible).toBe(true);
     });
 
-    it('禁用悬浮球网站统一归并为可注册域名并去重', () => {
+    it('禁用悬浮球网站保留完整主机名并去重', () => {
         expect(normalizeConfig({
             floatingBallDisabledDomains: [
                 'https://mail.example.com/inbox',
@@ -1277,7 +1277,7 @@ describe('悬浮球进阶外观配置', () => {
                 42,
                 'news.bbc.co.uk',
             ],
-        }).floatingBallDisabledDomains).toEqual(['example.com', 'bbc.co.uk']);
+        }).floatingBallDisabledDomains).toEqual(['mail.example.com', 'news.bbc.co.uk']);
         expect(normalizeConfig({floatingBallDisabledDomains: 'example.com'}).floatingBallDisabledDomains).toEqual([]);
     });
 });

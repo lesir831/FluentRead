@@ -6,6 +6,7 @@ import {prepareConfigForExport, prepareConfigForImport} from '@/src/core/config/
 
 import {
     getSiteBaseDomain,
+    getSiteHostname,
     createSiteRuleMatcher,
     isAlwaysTranslateSite,
     isExtensionDisabledOnSite,
@@ -248,12 +249,12 @@ describe('始终翻译网站规则', () => {
 });
 
 describe('悬浮球禁用网站规则', () => {
-    it('按主域名匹配子域，并忽略非法或非数组输入', () => {
+    it('保留完整主机范围，并忽略非法或非数组输入', () => {
         expect(normalizeFloatingBallDisabledDomains([
             'https://mail.example.com/inbox',
             'mail.example.com',
             'invalid host',
-        ])).toEqual(['example.com']);
+        ])).toEqual(['mail.example.com']);
         expect(normalizeFloatingBallDisabledDomains('example.com')).toEqual([]);
         expect(isFloatingBallDisabledOnSite('https://mail.example.com/inbox', ['example.com'])).toBe(true);
         expect(isFloatingBallDisabledOnSite('https://example.org/', ['example.com'])).toBe(false);
@@ -275,11 +276,12 @@ describe('统一网站偏好与生效解释', () => {
     const config = () => ({on: true, autoTranslate: false, disableFloatingBall: false,
         alwaysTranslateDomains: ['https://docs.example.com/a', 'example.com'],
         disabledExtensionDomains: ['example.com'], floatingBallDisabledDomains: ['mail.example.com', 'other.test']});
-    it('将旧数组按主域归并为一行，保留重叠偏好并支持搜索', () => {
+    it('其他名单按主域归并、悬浮球保留子站行，保留重叠偏好', () => {
         const source = config();
         const rows = listSitePreferences(source);
         expect(rows).toEqual([
-            {domain: 'example.com', alwaysTranslate: true, extensionDisabled: true, floatingBallHidden: true, translationOnly: false},
+            {domain: 'example.com', alwaysTranslate: true, extensionDisabled: true, floatingBallHidden: false, translationOnly: false},
+            {domain: 'mail.example.com', alwaysTranslate: false, extensionDisabled: false, floatingBallHidden: true, translationOnly: false},
             {domain: 'other.test', alwaysTranslate: false, extensionDisabled: false, floatingBallHidden: true, translationOnly: false},
         ]);
         expect(source.alwaysTranslateDomains).toHaveLength(2);
@@ -287,10 +289,10 @@ describe('统一网站偏好与生效解释', () => {
     it('编辑与删除只影响目标域名，不突变源名单，撤销可以完整补回', () => {
         const source = config(); const snapshot = structuredClone(source);
         const row = listSitePreferences(source)[0]!;
-        const removed = updateSitePreference(source, 'https://news.example.com/a', null)!;
-        expect(removed).toEqual({alwaysTranslateDomains: [], disabledExtensionDomains: [], floatingBallDisabledDomains: ['other.test'], translationOnlyDomains: []});
+        const removed = updateSitePreference(source, 'example.com', null)!;
+        expect(removed).toEqual({alwaysTranslateDomains: [], disabledExtensionDomains: [], floatingBallDisabledDomains: ['mail.example.com', 'other.test'], translationOnlyDomains: []});
         expect(updateSitePreference(removed, row.domain, row)).toEqual({
-            alwaysTranslateDomains: ['example.com'], disabledExtensionDomains: ['example.com'], floatingBallDisabledDomains: ['other.test', 'example.com'],
+            alwaysTranslateDomains: ['example.com'], disabledExtensionDomains: ['example.com'], floatingBallDisabledDomains: ['mail.example.com', 'other.test'],
             translationOnlyDomains: [],
         });
         expect(updateSitePreference(source, 'co.uk', row)).toBeNull();
@@ -300,8 +302,8 @@ describe('统一网站偏好与生效解释', () => {
     it.each([
         ['暂停', {on: false, autoTranslate: true}, 'paused', 'paused'],
         ['网站禁用', {autoTranslate: true}, 'disabled', 'disabled'],
-        ['全局自动', {disabledExtensionDomains: [], autoTranslate: true}, 'global', 'hidden-site'],
-        ['网站自动', {disabledExtensionDomains: []}, 'site', 'hidden-site'],
+        ['全局自动', {disabledExtensionDomains: [], autoTranslate: true}, 'global', 'visible'],
+        ['网站自动', {disabledExtensionDomains: []}, 'site', 'visible'],
         ['全局隐藏', {disabledExtensionDomains: [], disableFloatingBall: true}, 'site', 'hidden-global'],
         ['手动翻译', {disabledExtensionDomains: [], alwaysTranslateDomains: [], floatingBallDisabledDomains: []}, 'manual', 'visible'],
     ])('解释%s并与运行时自动翻译判定保持一致', (_, patch, translation, ball) => {
@@ -359,5 +361,41 @@ describe('按网站关闭双语对照', () => {
         expect(config.translationOnlyDomains).toEqual(['example.com']);
         const restored = prepareConfigForImport(JSON.parse(JSON.stringify(prepareConfigForExport(config))), normalizeConfig({}));
         expect(restored.translationOnlyDomains).toEqual(['example.com']); expect(restored.display).toBe(1);
+    });
+});
+
+
+describe('悬浮球子站作用域回归', () => {
+    it('Flow 网址在规范化和配置导出导入后不扩大到 google.com', () => {
+        const source = normalizeConfig({floatingBallDisabledDomains: [' https://FLOW.google.com:443/a?q=1#x ', 'flow.google.com.', 42, 'co.uk', '*.google.com', 'invalid host']});
+        expect(source.floatingBallDisabledDomains).toEqual(['flow.google.com']);
+        const restored = prepareConfigForImport(JSON.parse(JSON.stringify(prepareConfigForExport(source))), normalizeConfig({}));
+        expect(restored.floatingBallDisabledDomains).toEqual(['flow.google.com']);
+        for (const host of ['flow.google.com', 'nested.flow.google.com']) {
+            expect(isFloatingBallDisabledOnSite(`https://${host}/`, restored.floatingBallDisabledDomains)).toBe(true);
+        }
+        for (const host of ['google.com', 'www.google.com', 'mail.google.com', 'notflow.google.com', 'flow.google.com.evil.test']) {
+            expect(isFloatingBallDisabledOnSite(`https://${host}/`, restored.floatingBallDisabledDomains)).toBe(false);
+        }
+        expect(isFloatingBallDisabledOnSite('https://flow.google.com', null)).toBe(false);
+        expect(getSiteHostname('file:///tmp/a')).toBeNull();
+        expect(getSiteHostname('http://localhost:3000/a')).toBe('localhost');
+        expect(getSiteHostname('http://127.0.0.1:3000/a')).toBe('127.0.0.1');
+        expect(getSiteHostname('http://[::1]:3000/a')).toBe('[::1]');
+        expect(getSiteHostname('https://www.例子.中国/')).toBe('www.xn--fsqu00a.xn--fiqs8s');
+    });
+
+    it('子站增删和撤销不改写主域或兄弟站偏好，预览与运行时一致', () => {
+        const source = normalizeConfig({alwaysTranslateDomains: ['google.com'], floatingBallDisabledDomains: ['mail.google.com']});
+        const row = {alwaysTranslate: false, extensionDisabled: false, floatingBallHidden: true, translationOnly: false};
+        const added = updateSitePreference(source, 'https://flow.google.com/a', row)!;
+        expect(added.alwaysTranslateDomains).toEqual(['google.com']);
+        expect(added.floatingBallDisabledDomains).toEqual(['mail.google.com', 'flow.google.com']);
+        const removed = updateSitePreference(added, 'flow.google.com', null)!;
+        expect(removed.alwaysTranslateDomains).toEqual(['google.com']);
+        expect(removed.floatingBallDisabledDomains).toEqual(['mail.google.com']);
+        expect(updateSitePreference(removed, 'flow.google.com', row)).toEqual(added);
+        expect(previewSitePreferences('https://flow.google.com/', {...source, ...added, disableFloatingBall: false})).toMatchObject({floatingBall: 'hidden-site'});
+        expect(previewSitePreferences('https://www.google.com/', {...source, ...added, disableFloatingBall: false})).toMatchObject({floatingBall: 'visible'});
     });
 });

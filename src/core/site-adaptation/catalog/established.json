@@ -384,8 +384,6 @@
       {
         "css": [
           "shreddit-post [slot=\"text-body\"] p",
-          "shreddit-post [slot=\"text-body\"] li",
-          "shreddit-post [slot=\"text-body\"] blockquote",
           "shreddit-post [slot=\"text-body\"] h1",
           "shreddit-post [slot=\"text-body\"] h2",
           "shreddit-post [slot=\"text-body\"] h3",
@@ -393,10 +391,7 @@
           "shreddit-post [slot=\"text-body\"] h5",
           "shreddit-post [slot=\"text-body\"] h6",
           "[data-testid=\"post-content\"] p",
-          "[data-testid=\"post-content\"] li",
-          "[data-testid=\"post-content\"] blockquote",
           "[data-click-id=\"text\"] p",
-          "[data-click-id=\"text\"] li",
           "[data-click-id=\"body\"] p",
           "[data-click-id=\"body\"] h1",
           "[data-click-id=\"body\"] h2",
@@ -407,6 +402,18 @@
         ],
         "key": "reddit-post-prose",
         "resolve": "closest"
+      },
+      {
+        "css": [
+          "shreddit-post [slot=\"text-body\"] li",
+          "shreddit-post [slot=\"text-body\"] blockquote",
+          "[data-testid=\"post-content\"] li",
+          "[data-testid=\"post-content\"] blockquote",
+          "[data-click-id=\"text\"] li"
+        ],
+        "key": "reddit-post-prose",
+        "resolve": "self",
+        "atomic": false
       },
       {
         "css": [

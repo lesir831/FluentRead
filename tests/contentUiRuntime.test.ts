@@ -203,7 +203,7 @@ describe('悬浮球 content runtime', () => {
   });
 
   it('网站和全局隐藏通过各自的配置字段保存，并保留已有网站', async () => {
-    vi.stubGlobal('location', {href: 'https://docs.example.com/article'});
+    vi.stubGlobal('location', {href: 'https://flow.google.com/article'});
     mocks.config.floatingBallDisabledDomains = ['other.net'];
     mocks.createVueShadowUi.mockResolvedValue(ui());
     const runtime = await import('@/src/features/floating-ball/content/runtime');
@@ -212,9 +212,12 @@ describe('悬浮球 content runtime', () => {
     expect(canHideOnSite).toBe(true);
     await onHide('site', {isTrusted: true});
     expect(mocks.requestConfigPatch).toHaveBeenLastCalledWith(
-      {floatingBallDisabledDomains: ['other.net', 'example.com']}, expect.any(Function),
+      {floatingBallDisabledDomains: ['other.net', 'flow.google.com']}, expect.any(Function),
     );
     expect(runtime.isFloatingBallAllowedOnPage()).toBe(false);
+    expect(runtime.isFloatingBallAllowedOnPage('https://google.com/')).toBe(true);
+    expect(runtime.isFloatingBallAllowedOnPage('https://mail.google.com/')).toBe(true);
+    expect(runtime.isFloatingBallAllowedOnPage('https://nested.flow.google.com/')).toBe(false);
     await onHide('global', {isTrusted: true});
     expect(mocks.requestConfigPatch).toHaveBeenLastCalledWith({disableFloatingBall: true}, expect.any(Function));
     expect(mocks.config.on).toBe(true);
